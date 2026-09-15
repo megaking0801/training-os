@@ -5,3 +5,6 @@ dist-ssr
 .DS_Store
 .vite
 coverage
+
+# 個人資料，留在本機不進 repo
+Training OS *Handoff.md
