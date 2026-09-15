@@ -76,13 +76,15 @@ describe('App 主流程', () => {
 
     // 上一個測試留下的紀錄還在同一個 fake IndexedDB 裡，
     // 把課表轉回推日 A。
-    await waitFor(() => expect(screen.getByText('拉日 A')).toBeTruthy())
+    //
+    // 每一圈都要等首頁的「開始今天訓練」回來才算存好：按下「結束訓練」之後
+    // 那個按鈕就換成確認畫面了，拿它當結束訊號會搶在寫入完成之前。
     for (const expected of ['拉日 A', '腿部日', '上肢 B']) {
-      expect(screen.getByText(expected)).toBeTruthy()
+      await waitFor(() => expect(screen.getByText(expected)).toBeTruthy())
       fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
       fireEvent.click(await screen.findByRole('button', { name: '結束訓練' }))
       fireEvent.click(screen.getByRole('button', { name: '儲存並完成' }))
-      await waitFor(() => expect(screen.queryByRole('button', { name: '結束訓練' })).toBeNull())
+      await screen.findByRole('button', { name: '開始今天訓練' })
     }
 
     await waitFor(() => expect(screen.getByText('推日 A')).toBeTruthy())
