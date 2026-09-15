@@ -138,12 +138,14 @@ export function HomeScreen({ onStart }: { onStart: () => void }) {
       <div className="card">
         <div className="row row--between">
           <div>
-            <div className="big-number">
-              {latestWeight ? `${formatWeight(latestWeight.weight)} kg` : '—'}
-            </div>
-            <div className="small muted">
-              {latestWeight ? formatRelativeDay(latestWeight.date) : '還沒有紀錄'}
-            </div>
+            {latestWeight ? (
+              <>
+                <div className="big-number">{formatWeight(latestWeight.weight)} kg</div>
+                <div className="small muted">{formatRelativeDay(latestWeight.date)}</div>
+              </>
+            ) : (
+              <div className="muted">還沒有體重紀錄</div>
+            )}
           </div>
         </div>
         <div className="row" style={{ marginTop: 12 }}>
@@ -164,8 +166,7 @@ export function HomeScreen({ onStart }: { onStart: () => void }) {
 
       {!persisted && (
         <div className="banner banner--info small">
-          把這個網站加入 iPhone 主畫面，資料才不容易被 Safari 清掉。
-          記得定期到「設定」頁匯出 JSON 備份。
+          {'把這個網站加入 iPhone 主畫面，資料才不容易被 Safari 清掉。記得定期到「設定」頁匯出 JSON 備份。'}
         </div>
       )}
     </>

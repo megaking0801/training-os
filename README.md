@@ -24,6 +24,16 @@ npm run build    # 型別檢查 + 產出 dist/
 npm run preview  # 預覽產出的成品
 ```
 
+看畫面長什麼樣（用系統上的 Chrome 在 iPhone 尺寸下截圖到 `screenshots/`）：
+
+```bash
+npm run build
+npm run preview          # 另一個終端機
+npm run shots
+```
+
+這個專案沒有真機可以測，CSS 也全是手寫的，所以改版面之後跑一次比對著 CSS 猜可靠。
+
 重新產生 App icon（純 Node，無外部依賴）：
 
 ```bash

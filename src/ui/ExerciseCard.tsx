@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Exercise, Slot } from '../program/types'
 import type { LoggedSet, Suggestion, TrackEntry } from '../engine/types'
 import { formatWeight } from '../engine/units'
@@ -32,7 +32,7 @@ const RIR_CHOICES: { value: number; label: string }[] = [
   { value: 0, label: '力竭' },
   { value: 1, label: '還能 1 下' },
   { value: 2, label: '還能 2 下' },
-  { value: 3, label: '還能 3 下以上' },
+  { value: 3, label: '3 下以上' },
 ]
 
 function rangeText([low, high]: [number, number]): string {
@@ -60,10 +60,16 @@ function prefill(
 
   const lastSame = lastEntry?.sets[0]
   return {
-    weight: suggestion.weight ?? lastSame?.weight ?? 0,
+    // NaN 會讓輸入框顯示空白。填 0 的話使用者得先把 0 刪掉才能打字。
+    weight: suggestion.weight ?? lastSame?.weight ?? Number.NaN,
     reps: lastSame?.reps ?? slot.reps[0],
     rir: lastSame?.rir ?? slot.rir[1],
   }
+}
+
+/** 重量與次數都要是有效數字才能記這一組。 */
+function isLoggable(set: LoggedSet): boolean {
+  return Number.isFinite(set.weight) && set.weight >= 0 && Number.isFinite(set.reps) && set.reps > 0
 }
 
 function NumberField({
@@ -86,7 +92,7 @@ function NumberField({
         min={0}
         aria-label={label}
         value={Number.isFinite(value) ? value : ''}
-        onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        onChange={(e) => onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))}
         onFocus={(e) => e.target.select()}
       />
     </div>
@@ -112,19 +118,37 @@ export function ExerciseCard({
   const [nextSet, setNextSet] = useState<LoggedSet>(() =>
     prefill(slot, suggestion, lastEntry, entry.sets),
   )
+  const [weightEdited, setWeightEdited] = useState(false)
 
-  const warmup = useMemo(
-    () =>
-      slot.progression === 'benchTopSet' && entry.sets.length === 0
-        ? buildWarmup(suggestion.weight ?? 0)
-        : [],
-    [entry.sets.length, slot.progression, suggestion.weight],
-  )
+  const suggestedWeight = suggestion.weight
+
+  /**
+   * 降重工作組的重量要等主力重組記完才算得出來，所以掛載時的預填是空的。
+   * 建議重量一出現就補進去，但使用者自己改過就不要蓋掉他。
+   */
+  useEffect(() => {
+    if (weightEdited || suggestedWeight === undefined) return
+    if (entry.sets.length > 0) return
+    setNextSet((s) => (s.weight === suggestedWeight ? s : { ...s, weight: suggestedWeight }))
+  }, [entry.sets.length, suggestedWeight, weightEdited])
+
+  /**
+   * 暖身階梯跟著「今天打算推多少」走，不是跟著建議走：
+   * 第一次做臥推時根本沒有建議重量，這時要等使用者自己填了才算得出來。
+   */
+  const warmup = useMemo(() => {
+    if (slot.progression !== 'benchTopSet' || entry.sets.length > 0) return []
+    const target = Number.isFinite(nextSet.weight) ? nextSet.weight : (suggestedWeight ?? 0)
+    const steps = buildWarmup(target)
+    // 只剩空槓那一階代表還不知道今天要推多少，不用顯示。
+    return steps.length > 1 ? steps : []
+  }, [entry.sets.length, nextSet.weight, slot.progression, suggestedWeight])
 
   const title = slot.label ?? exercise.name
   const perSide = slot.perSide ? '每側 ' : ''
 
   function commitSet() {
+    if (!isLoggable(nextSet)) return
     onChange({ ...entry, sets: [...entry.sets, { ...nextSet }] })
     onSetLogged(slot.restSeconds)
   }
@@ -279,7 +303,10 @@ export function ExerciseCard({
                 label={`${title} 本組重量`}
                 value={nextSet.weight}
                 step={0.5}
-                onChange={(weight) => setNextSet((s) => ({ ...s, weight }))}
+                onChange={(weight) => {
+                  setWeightEdited(true)
+                  setNextSet((s) => ({ ...s, weight }))
+                }}
               />
               <NumberField
                 label={`${title} 本組次數`}
@@ -321,6 +348,7 @@ export function ExerciseCard({
             <button
               className="btn btn--commit"
               onClick={commitSet}
+              disabled={!isLoggable(nextSet)}
               aria-label={`${title} 完成這一組`}
             >
               ✓ 完成這一組
@@ -328,7 +356,7 @@ export function ExerciseCard({
           </div>
 
           {entry.sets.length === 0 && (
-            <button className="btn btn--ghost small" onClick={() => setSkipped(true)}>
+            <button className="skip-exercise" onClick={() => setSkipped(true)}>
               今天不做這個
             </button>
           )}

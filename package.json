@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist",
+    "shots": "node scripts/screenshot.mjs"
   },
   "dependencies": {
     "idb": "^8.0.3",
@@ -27,6 +28,7 @@
     "fake-indexeddb": "^6.2.5",
     "gh-pages": "^6.3.0",
     "jsdom": "^30.0.1",
+    "puppeteer-core": "^25.11.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.9",
     "vite-plugin-pwa": "^1.0.3",

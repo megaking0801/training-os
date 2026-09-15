@@ -108,16 +108,14 @@ export function SettingsScreen() {
           重新載入 App
         </button>
         <div className="small muted" style={{ marginTop: 10 }}>
-          加到主畫面之後沒有網址列可以重新整理。畫面卡住、或想馬上拿到新版時按這裡。
-          按完再回來看上面的版本時間有沒有變。
+          {'加到主畫面之後沒有網址列可以重新整理。畫面卡住、或想馬上拿到新版時按這裡。按完再回來看上面的版本時間有沒有變。'}
         </div>
       </div>
 
       <div className="section-title">資料備份</div>
       <div className="card">
         <div className="small muted" style={{ marginBottom: 12 }}>
-          資料只存在這支手機上。目前有 {sessions.length} 筆訓練紀錄、{bodyWeight.length} 筆體重。
-          換手機或清掉 Safari 資料之前一定要先匯出。
+          資料只存在這支手機上。目前有 {sessions.length} 筆訓練紀錄、{bodyWeight.length} 筆體重。換手機或清掉 Safari 資料之前一定要先匯出。
         </div>
         <button className="btn" onClick={handleExport}>
           下載備份檔

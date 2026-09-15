@@ -85,6 +85,11 @@ textarea:focus {
 .app__main {
   flex: 1;
   padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
+}
+
+/* 訓練中沒有 tabbar，但底部浮著休息計時器，要留出它的高度。 */
+.app__main--session {
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
   padding-top: calc(16px + env(safe-area-inset-top));
   max-width: 560px;
   width: 100%;
@@ -175,6 +180,15 @@ textarea:focus {
   transform: scale(0.99);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn:disabled:active {
+  transform: none;
+}
+
 .btn--primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -195,8 +209,10 @@ textarea:focus {
 .btn--sm {
   min-height: 40px;
   font-size: 14px;
-  padding: 0 12px;
+  padding: 0 14px;
   width: auto;
+  flex: none;
+  white-space: nowrap;
 }
 
 .row {
@@ -326,11 +342,13 @@ textarea:focus {
 }
 
 .exercise__name {
+  display: block;
   font-size: 17px;
   font-weight: 650;
 }
 
 .exercise__meta {
+  display: block;
   color: var(--muted);
   font-size: 13px;
   margin-top: 2px;
@@ -459,6 +477,8 @@ textarea:focus {
 
 .rir__choice {
   min-height: var(--tap);
+  display: grid;
+  place-items: center;
   border-radius: 10px;
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -476,6 +496,18 @@ textarea:focus {
 
 .rir__target {
   margin-top: 6px;
+}
+
+.skip-exercise {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 10px;
+  min-height: var(--tap);
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .btn--commit {
@@ -505,7 +537,7 @@ textarea:focus {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(env(safe-area-inset-bottom) + 68px);
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
   margin: 0 12px;
   background: var(--surface-2);
   border: 1px solid var(--accent-dim);

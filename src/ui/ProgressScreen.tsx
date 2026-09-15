@@ -72,6 +72,18 @@ export function ProgressScreen() {
   const thisWeek = volumeTrend.find((point) => point.week === weekKey())
   const target = useMemo(() => plannedWeeklyVolume(state.mode), [state.mode])
 
+  // 完全沒資料時，四張「還畫不出趨勢」的卡片只是四次一樣的話。
+  if (sessions.length === 0 && bodyWeight.length === 0) {
+    return (
+      <div className="empty">
+        <div style={{ marginBottom: 8 }}>還沒有東西可以看。</div>
+        <div className="small">
+          練完兩次之後，這裡會有臥推趨勢、體重趨勢，以及每週胸背的工作組數。
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="section-title">臥推主力重組</div>
@@ -171,8 +183,7 @@ export function ProgressScreen() {
           })
         )}
         <div className="small muted" style={{ marginTop: 4 }}>
-          分母是 {state.mode} 天課表排定的組數。主要肌群記整組，次要肌群記半組。
-          組數不是越多越好，這裡只是讓你看得到落差。
+          分母是 {state.mode} 天課表排定的組數。主要肌群記整組，次要肌群記半組。組數不是越多越好，這裡只是讓你看得到落差。
         </div>
       </div>
     </>

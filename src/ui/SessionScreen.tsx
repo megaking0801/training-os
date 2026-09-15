@@ -187,7 +187,7 @@ export function SessionScreen({ onDone }: { onDone: () => void }) {
         <div className="card" style={{ marginTop: 16 }}>
           <h2 className="card__title">這次一組都沒記</h2>
           <div className="card__sub" style={{ marginTop: 6 }}>
-            不會留下紀錄，課表也不會往前走 — 下次打開還是{day.name}。 如果是這堂不想做了，請回首頁按「跳過這堂」。
+            不會留下紀錄，課表也不會往前走 — 下次打開還是{day.name}。如果是這堂不想做了，請回首頁按「跳過這堂」。
           </div>
           <button className="btn btn--primary" style={{ marginTop: 12 }} onClick={handleFinish}>
             結束，不留紀錄

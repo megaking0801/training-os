@@ -32,7 +32,7 @@ export function App() {
 
   return (
     <div className="app">
-      <main className="app__main">
+      <main className={`app__main${showSession ? ' app__main--session' : ''}`}>
         {showSession ? (
           <SessionScreen
             onDone={() => {

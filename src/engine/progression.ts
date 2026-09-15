@@ -60,7 +60,7 @@ function startMessage(slot: Slot): string {
   const reps = rangeText(slot.reps)
   const rir = rangeText(slot.rir)
   const perSide = slot.perSide ? '每側 ' : ''
-  return `第一次做這個動作。選一個能在${perSide}${reps} 下停在保留 ${rir} 下的重量。`
+  return `第一次做這個動作。選一個能在 ${perSide}${reps} 下停在保留 ${rir} 下的重量。`
 }
 
 /** 雙進展與自體重動作共用的加重判斷，差別只在建議文字。 */
