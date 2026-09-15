@@ -8,6 +8,10 @@ const base = process.env.BASE_PATH ?? '/training-os/'
 
 export default defineConfig({
   base,
+  // 設定頁顯示這個時間，讓人看得出手機上跑的是不是最新版。
+  define: {
+    __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({

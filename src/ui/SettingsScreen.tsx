@@ -4,9 +4,18 @@ import { DEFAULT_INCREMENT, EQUIPMENT_LABEL } from '../program/types'
 import { formatWeight } from '../engine/units'
 import { formatShortDate } from '../engine/dates'
 import { backupFileName } from '../store/backup'
+import { reloadApp } from './appUpdate'
 import { useAppData } from './store'
 
 type Status = { kind: 'ok' | 'error'; text: string } | null
+
+/** build 時間戳轉成本機時區的「9/15 19:50」。 */
+function formatBuildTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '未知'
+  const time = `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
+  return `${date.getMonth() + 1}/${date.getDate()} ${time}`
+}
 
 export function SettingsScreen() {
   const {
@@ -58,6 +67,21 @@ export function SettingsScreen() {
 
   return (
     <>
+      <div className="section-title">App</div>
+      <div className="card">
+        <div className="row row--between">
+          <span className="small muted">目前版本</span>
+          <span className="small">{formatBuildTime(__APP_BUILT_AT__)}</span>
+        </div>
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => void reloadApp()}>
+          重新載入 App
+        </button>
+        <div className="small muted" style={{ marginTop: 10 }}>
+          加到主畫面之後沒有網址列可以重新整理。畫面卡住、或想馬上拿到新版時按這裡。
+          按完再回來看上面的版本時間有沒有變。
+        </div>
+      </div>
+
       <div className="section-title">資料備份</div>
       <div className="card">
         <div className="small muted" style={{ marginBottom: 12 }}>
