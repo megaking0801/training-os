@@ -21,11 +21,25 @@ interface Props {
   onSetLogged: (restSeconds: number) => void
 }
 
+/**
+ * 保留次數的選項。按鈕直接寫意思，不寫數字，因為「保留 2」本身看不出是什麼。
+ *
+ * 「還能 3 下以上」一律存成 3。加重規則只看有沒有達到目標下限（1 或 2）
+ * 以及臥推主力重組的 ≤1，所以 3 和 5 對演算法沒有差別。真的要記精確值，
+ * 記完之後在上面那幾列的輸入框改就好。
+ */
+const RIR_CHOICES: { value: number; label: string }[] = [
+  { value: 0, label: '力竭' },
+  { value: 1, label: '還能 1 下' },
+  { value: 2, label: '還能 2 下' },
+  { value: 3, label: '還能 3 下以上' },
+]
+
 function rangeText([low, high]: [number, number]): string {
   return low === high ? `${low}` : `${low}–${high}`
 }
 
-/** 組成「30 × 10 保留 1」這種一行摘要。 */
+/** 組成「30 × 10、30 × 9」這種一行摘要。 */
 function describeSets(sets: LoggedSet[]): string {
   return sets.map((s) => `${formatWeight(s.weight)} × ${s.reps}`).join('、')
 }
@@ -90,7 +104,8 @@ export function ExerciseCard({
   onChange,
   onSetLogged,
 }: Props) {
-  const complete = entry.sets.length >= slot.sets
+  const skipped = entry.skipped === true
+  const complete = !skipped && entry.sets.length >= slot.sets
   // 使用者手動開合之後就照他的意思，沒動過的卡片跟著「現在做到哪」走。
   const [manualOpen, setManualOpen] = useState<boolean | null>(null)
   const open = manualOpen ?? active
@@ -110,9 +125,7 @@ export function ExerciseCard({
   const perSide = slot.perSide ? '每側 ' : ''
 
   function commitSet() {
-    const sets = [...entry.sets, { ...nextSet }]
-    onChange({ ...entry, sets })
-    setNextSet({ ...nextSet })
+    onChange({ ...entry, sets: [...entry.sets, { ...nextSet }] })
     onSetLogged(slot.restSeconds)
   }
 
@@ -125,18 +138,32 @@ export function ExerciseCard({
     onChange({ ...entry, sets: entry.sets.filter((_, i) => i !== index) })
   }
 
+  function setSkipped(next: boolean) {
+    onChange({ ...entry, skipped: next })
+    // 跳過之後把卡片交還給「現在做到哪」的自動邏輯，不要卡在手動展開的狀態。
+    setManualOpen(null)
+  }
+
+  const statusClass = skipped ? ' exercise--skipped' : complete ? ' exercise--done' : ''
+
   return (
-    <section className={`exercise${complete ? ' exercise--done' : ''}`}>
+    <section className={`exercise${statusClass}`}>
       <button className="exercise__head" onClick={() => setManualOpen(!open)} aria-expanded={open}>
         <span className={`exercise__check${complete ? ' exercise__check--done' : ''}`}>
-          {complete ? '✓' : ''}
+          {complete ? '✓' : skipped ? '—' : ''}
         </span>
         <span className="grow">
           <span className="exercise__name">{title}</span>
           <span className="exercise__meta">
-            {slot.sets} 組 × {perSide}
-            {rangeText(slot.reps)} 下．保留 {rangeText(slot.rir)} 下
-            {entry.sets.length > 0 && ` ．已記 ${entry.sets.length} 組`}
+            {skipped ? (
+              '今天沒做'
+            ) : (
+              <>
+                {slot.sets} 組 × {perSide}
+                {rangeText(slot.reps)} 下．保留 {rangeText(slot.rir)} 下
+                {entry.sets.length > 0 && ` ．已記 ${entry.sets.length} 組`}
+              </>
+            )}
           </span>
         </span>
         <span className="muted" aria-hidden>
@@ -144,7 +171,15 @@ export function ExerciseCard({
         </span>
       </button>
 
-      {open && (
+      {open && skipped && (
+        <div className="exercise__body">
+          <button className="btn" onClick={() => setSkipped(false)}>
+            其實要做
+          </button>
+        </div>
+      )}
+
+      {open && !skipped && (
         <div className="exercise__body">
           <div className="laststat">
             上次：
@@ -188,47 +223,57 @@ export function ExerciseCard({
             </div>
           )}
 
-          <div className="setrow__labels" aria-hidden>
-            <span>組</span>
-            <span>重量 kg</span>
-            <span>{slot.perSide ? '每側次數' : '次數'}</span>
-            <span>保留</span>
-            <span />
-          </div>
-
-          <div className="setlist">
-            {entry.sets.map((set, index) => (
-              <div className="setrow" key={index}>
-                <span className="setrow__index">{index + 1}</span>
-                <NumberField
-                  label={`${title} 第 ${index + 1} 組重量`}
-                  value={set.weight}
-                  step={0.5}
-                  onChange={(weight) => editSet(index, { weight })}
-                />
-                <NumberField
-                  label={`${title} 第 ${index + 1} 組次數`}
-                  value={set.reps}
-                  step={1}
-                  onChange={(reps) => editSet(index, { reps })}
-                />
-                <NumberField
-                  label={`${title} 第 ${index + 1} 組保留次數`}
-                  value={set.rir}
-                  step={1}
-                  onChange={(rir) => editSet(index, { rir })}
-                />
-                <button
-                  className="setrow__remove"
-                  onClick={() => removeSet(index)}
-                  aria-label={`${title} 刪除第 ${index + 1} 組`}
-                >
-                  ✕
-                </button>
+          {entry.sets.length > 0 && (
+            <>
+              <div className="setrow__labels" aria-hidden>
+                <span>組</span>
+                <span>重量 kg</span>
+                <span>{slot.perSide ? '每側次數' : '次數'}</span>
+                <span>保留</span>
+                <span />
               </div>
-            ))}
+              <div className="setlist">
+                {entry.sets.map((set, index) => (
+                  <div className="setrow" key={index}>
+                    <span className="setrow__index">{index + 1}</span>
+                    <NumberField
+                      label={`${title} 第 ${index + 1} 組重量`}
+                      value={set.weight}
+                      step={0.5}
+                      onChange={(weight) => editSet(index, { weight })}
+                    />
+                    <NumberField
+                      label={`${title} 第 ${index + 1} 組次數`}
+                      value={set.reps}
+                      step={1}
+                      onChange={(reps) => editSet(index, { reps })}
+                    />
+                    <NumberField
+                      label={`${title} 第 ${index + 1} 組保留次數`}
+                      value={set.rir}
+                      step={1}
+                      onChange={(rir) => editSet(index, { rir })}
+                    />
+                    <button
+                      className="setrow__remove"
+                      onClick={() => removeSet(index)}
+                      aria-label={`${title} 刪除第 ${index + 1} 組`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
-            <div className="setrow">
+          <div className="nextset">
+            <div className="nextset__labels" aria-hidden>
+              <span>組</span>
+              <span>重量 kg</span>
+              <span>{slot.perSide ? '每側次數' : '次數'}</span>
+            </div>
+            <div className="setrow setrow--next">
               <span className="setrow__index">{entry.sets.length + 1}</span>
               <NumberField
                 label={`${title} 本組重量`}
@@ -242,22 +287,51 @@ export function ExerciseCard({
                 step={1}
                 onChange={(reps) => setNextSet((s) => ({ ...s, reps }))}
               />
-              <NumberField
-                label={`${title} 本組保留次數`}
-                value={nextSet.rir}
-                step={1}
-                onChange={(rir) => setNextSet((s) => ({ ...s, rir }))}
-              />
-              <button
-                className="setrow__remove"
-                style={{ color: 'var(--accent)', fontSize: 22 }}
-                onClick={commitSet}
-                aria-label={`${title} 完成這一組`}
-              >
-                ✓
-              </button>
             </div>
+
+            <div className="rir">
+              <div className="rir__question">保留次數 —— 做完這組還能再做幾下？</div>
+              <div
+                className="rir__choices"
+                role="radiogroup"
+                aria-label={`${title} 本組保留次數`}
+              >
+                {RIR_CHOICES.map((choice) => {
+                  const selected =
+                    choice.value === 3 ? nextSet.rir >= 3 : nextSet.rir === choice.value
+                  return (
+                    <button
+                      key={choice.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`rir__choice${selected ? ' rir__choice--active' : ''}`}
+                      onClick={() => setNextSet((s) => ({ ...s, rir: choice.value }))}
+                    >
+                      {choice.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="rir__target small muted">
+                這個動作的目標是保留 {rangeText(slot.rir)} 下
+              </div>
+            </div>
+
+            <button
+              className="btn btn--commit"
+              onClick={commitSet}
+              aria-label={`${title} 完成這一組`}
+            >
+              ✓ 完成這一組
+            </button>
           </div>
+
+          {entry.sets.length === 0 && (
+            <button className="btn btn--ghost small" onClick={() => setSkipped(true)}>
+              今天不做這個
+            </button>
+          )}
 
           {complete && (
             <div className="small muted" style={{ marginTop: 10 }}>

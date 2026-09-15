@@ -6,6 +6,13 @@ export interface SessionEntry {
   trackId: string
   exerciseId: string
   sets: LoggedSet[]
+  /**
+   * 今天不做這個動作。
+   *
+   * 只在進行中的訓練裡有意義：一組都沒記的動作本來就不會存進 Session，
+   * 所以這個旗標不會進到歷史紀錄裡。
+   */
+  skipped?: boolean
 }
 
 /** 訓練後的今日狀態。Handoff §24。 */

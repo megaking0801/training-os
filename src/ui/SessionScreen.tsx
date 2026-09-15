@@ -78,12 +78,19 @@ export function SessionScreen({ onDone }: { onDone: () => void }) {
 
   if (!draft || !day) return null
 
-  const loggedSets = draft.entries.reduce((sum, e) => sum + e.sets.length, 0)
-  const plannedSets = day.slots.reduce((sum, s) => sum + s.sets, 0)
+  const entryFor = (trackId: string) => draft.entries.find((e) => e.trackId === trackId)
 
-  // 現在該做的動作：第一個還沒做滿組數的。全部做完就沒有。
+  const loggedSets = draft.entries.reduce((sum, e) => sum + e.sets.length, 0)
+  // 今天不做的動作要從分母扣掉，否則進度永遠看起來沒做完。
+  const plannedSets = day.slots.reduce(
+    (sum, slot) => (entryFor(slot.trackId)?.skipped ? sum : sum + slot.sets),
+    0,
+  )
+
+  // 現在該做的動作：第一個還沒做滿組數、而且今天有要做的。全部做完就沒有。
   const activeTrackId = day.slots.find((slot) => {
-    const entry = draft.entries.find((e) => e.trackId === slot.trackId)
+    const entry = entryFor(slot.trackId)
+    if (entry?.skipped) return false
     return (entry?.sets.length ?? 0) < slot.sets
   })?.trackId
 
@@ -150,7 +157,7 @@ export function SessionScreen({ onDone }: { onDone: () => void }) {
 
       {day.slots.map((slot) => {
         const entry =
-          draft.entries.find((e) => e.trackId === slot.trackId) ??
+          entryFor(slot.trackId) ??
           ({ trackId: slot.trackId, exerciseId: slot.exerciseId, sets: [] } as SessionEntry)
         return (
           <ExerciseCard

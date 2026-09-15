@@ -70,7 +70,12 @@ describe('App 主流程', () => {
     const bench = '槓鈴臥推－主力重組'
     fireEvent.change(screen.getByLabelText(`${bench} 本組重量`), { target: { value: '70' } })
     fireEvent.change(screen.getByLabelText(`${bench} 本組次數`), { target: { value: '6' } })
-    fireEvent.change(screen.getByLabelText(`${bench} 本組保留次數`), { target: { value: '1' } })
+    // 保留次數是一鍵選，按鈕上寫的是意思不是數字。
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: `${bench} 本組保留次數` })).getByRole('radio', {
+        name: '還能 1 下',
+      }),
+    )
     fireEvent.click(screen.getByLabelText(`${bench} 完成這一組`))
 
     // 記完一組要自動開始休息倒數。
@@ -118,6 +123,68 @@ describe('App 主流程', () => {
     fireEvent.click(within(backoff).getByRole('button', { expanded: false }))
     // 降重工作組要跟著主力重組換算出 90–93%。
     expect(within(backoff).getByText(/約 65–67.5 kg/)).toBeTruthy()
+  })
+})
+
+describe('動作層級的「今天不做這個」', () => {
+  beforeEach(async () => {
+    await db.clearDraft()
+  })
+
+  it('標成今天沒做，進度分母跟著扣掉，下一個動作接手', async () => {
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
+
+    // 推日 A 排定 1 + 3 + 3 + 3 + 2 = 12 組。
+    expect(await screen.findByText('0 / 12 組')).toBeTruthy()
+
+    const topSet = (await screen.findByText('槓鈴臥推－主力重組')).closest('section')!
+    fireEvent.click(within(topSet).getByRole('button', { name: '今天不做這個' }))
+
+    // 主力重組 1 組被扣掉。
+    expect(await screen.findByText('0 / 11 組')).toBeTruthy()
+    expect(within(topSet).getByText('今天沒做')).toBeTruthy()
+
+    // 下一個動作接手成為展開中的那張卡。
+    const backoff = screen.getByText('槓鈴臥推－降重工作組').closest('section')!
+    expect(within(backoff).getByRole('button', { expanded: true })).toBeTruthy()
+  })
+
+  it('可以反悔', async () => {
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
+
+    const topSet = (await screen.findByText('槓鈴臥推－主力重組')).closest('section')!
+    fireEvent.click(within(topSet).getByRole('button', { name: '今天不做這個' }))
+    await screen.findByText('0 / 11 組')
+
+    fireEvent.click(within(topSet).getByRole('button', { expanded: false }))
+    fireEvent.click(within(topSet).getByRole('button', { name: '其實要做' }))
+
+    expect(await screen.findByText('0 / 12 組')).toBeTruthy()
+  })
+
+  it('已經記了組數就不給跳過，因為那不是跳過', async () => {
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
+
+    const bench = '槓鈴臥推－主力重組'
+    await screen.findByLabelText(`${bench} 本組重量`)
+    fireEvent.change(screen.getByLabelText(`${bench} 本組重量`), { target: { value: '70' } })
+    fireEvent.click(screen.getByLabelText(`${bench} 完成這一組`))
+
+    // 記滿之後卡片會自動收起來，所以要重新展開才問得準 ——
+    // 否則按鈕不見只是因為整個 body 被收掉了。
+    const topSet = screen.getByText(bench).closest('section')!
+    await waitFor(() => expect(within(topSet).getByRole('button', { expanded: false })).toBeTruthy())
+    fireEvent.click(within(topSet).getByRole('button', { expanded: false }))
+
+    expect(within(topSet).getByRole('button', { expanded: true })).toBeTruthy()
+    expect(within(topSet).getByLabelText(`${bench} 本組重量`)).toBeTruthy()
+    expect(within(topSet).queryByRole('button', { name: '今天不做這個' })).toBeNull()
   })
 })
 

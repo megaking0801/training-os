@@ -9,6 +9,37 @@ import { useAppData } from './store'
 
 type Status = { kind: 'ok' | 'error'; text: string } | null
 
+/**
+ * 介面上會出現、但看字面猜不出意思的詞。定義沿用 Handoff §4、§10、§11、§17。
+ */
+const GLOSSARY: { term: string; meaning: string }[] = [
+  {
+    term: '保留次數',
+    meaning:
+      '做完這組時，在維持正常動作的前提下，你估計自己還能再做幾下。保留 2 下就是做完第 10 下之後，感覺最多還能再擠 2 下；保留 0 就是力竭。大部分工作組的目標是保留 1–2 下，大型複合動作不需要每組做到完全力竭。這格是所有加重建議的關卡：次數到了上限、而且保留次數仍然達標，才會建議你加重量。',
+  },
+  {
+    term: '主力重組',
+    meaning:
+      '推日 A 的第一組槓鈴臥推，1 組 4–6 下、保留約 1 下。這是當天最重的一組，但不是在測最大重量。做到 6 下而且保留次數在 1 以內，下次就加 2–2.5 kg。',
+  },
+  {
+    term: '降重工作組',
+    meaning:
+      '主力重組之後的 3 組，重量降到主力的 90–93%（大約少 7–10%），做 5–7 下。重量跟著主力重組走，不會自己演進，所以你今天主力推多少，它就自動換算多少。',
+  },
+  {
+    term: '雙進展',
+    meaning:
+      '除了主力重組以外，大部分動作用的加重方式。重量先不動，把次數從區間下限一路推到上限（例如 8/8/8 推到 12/12/12）；三組都到上限而且保留次數達標，才加最小一級重量，然後次數回到低點重新往上推。',
+  },
+  {
+    term: '推估單次最大重量',
+    meaning:
+      '用這組的重量與次數換算出「大概能做 1 下的重量」，只拿來看長期趨勢，不需要真的去測。次數越高誤差越大，所以超過 12 下就不換算。',
+  },
+]
+
 /** build 時間戳轉成本機時區的「9/15 19:50」。 */
 function formatBuildTime(iso: string): string {
   const date = new Date(iso)
@@ -156,6 +187,18 @@ export function SettingsScreen() {
             </div>
           )
         })}
+      </div>
+
+      <div className="section-title">名詞說明</div>
+      <div className="card">
+        {GLOSSARY.map((item) => (
+          <div key={item.term} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+            <div style={{ fontWeight: 600 }}>{item.term}</div>
+            <div className="small muted" style={{ marginTop: 4 }}>
+              {item.meaning}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="section-title">體重紀錄</div>

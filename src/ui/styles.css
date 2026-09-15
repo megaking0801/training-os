@@ -410,6 +410,83 @@ textarea:focus {
   font-size: 20px;
 }
 
+.exercise--skipped {
+  opacity: 0.55;
+}
+
+.exercise--skipped .exercise__name {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+
+/* 新記一組：重量與次數一列，保留次數獨立一列 —— 四顆按鈕擠在 1fr 欄位裡
+   在手機上只剩約 22px 寬，按不到。 */
+.setrow--next {
+  grid-template-columns: 26px 1fr 1fr;
+}
+
+.nextset {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.nextset__labels {
+  display: grid;
+  grid-template-columns: 26px 1fr 1fr;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.rir {
+  margin-top: 12px;
+}
+
+.rir__question {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.rir__choices {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.rir__choice {
+  min-height: var(--tap);
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.25;
+  padding: 4px 2px;
+}
+
+.rir__choice--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #04180c;
+  font-weight: 600;
+}
+
+.rir__target {
+  margin-top: 6px;
+}
+
+.btn--commit {
+  margin-top: 12px;
+  min-height: 52px;
+  font-size: 17px;
+  background: rgba(34, 197, 94, 0.16);
+  border-color: var(--accent-dim);
+  color: #86efac;
+}
+
 .laststat {
   font-size: 14px;
   color: var(--muted);
