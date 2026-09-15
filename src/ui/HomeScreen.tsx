@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { DAYS } from '../program/days'
 import type { WeekMode } from '../program/types'
-import { countThisWeek, nextDay, positionInCycle } from '../engine/sequence'
+import { advanceCursor, countThisWeek, nextDay, positionInCycle } from '../engine/sequence'
 import { assessFatigue } from '../engine/fatigue'
 import { formatRelativeDay, toDateKey } from '../engine/dates'
 import { formatWeight } from '../engine/units'
@@ -17,11 +17,13 @@ export function HomeScreen({ onStart }: { onStart: () => void }) {
     persisted,
     setMode,
     startSession,
+    skipDay,
     recordBodyWeight,
   } = useAppData()
   const [weightInput, setWeightInput] = useState('')
 
   const upcoming = draft ? DAYS[draft.dayId] : DAYS[nextDay(state.mode, state.cursor)]
+  const afterSkip = DAYS[nextDay(state.mode, advanceCursor(state.mode, state.cursor))]
   const lastSession = sessions[0]
   const doneThisWeek = useMemo(
     () => countThisWeek(sessionDateKeys(sessions)),
@@ -41,6 +43,20 @@ export function HomeScreen({ onStart }: { onStart: () => void }) {
   async function handleStart() {
     if (!draft) await startSession()
     onStart()
+  }
+
+  async function handleSkip() {
+    const loggedSets = draft?.entries.reduce((sum, entry) => sum + entry.sets.length, 0) ?? 0
+    const consequence =
+      loggedSets > 0
+        ? `這次已經記了 ${loggedSets} 組，跳過會一起刪掉。`
+        : '不會留下任何紀錄。'
+    if (
+      !window.confirm(`跳過${upcoming.name}？課表會直接移到${afterSkip.name}。${consequence}`)
+    ) {
+      return
+    }
+    await skipDay()
   }
 
   async function submitWeight() {
@@ -84,6 +100,9 @@ export function HomeScreen({ onStart }: { onStart: () => void }) {
 
         <button className="btn btn--primary" style={{ marginTop: 16 }} onClick={handleStart}>
           {draft ? '繼續這次訓練' : '開始今天訓練'}
+        </button>
+        <button className="btn btn--ghost" style={{ marginTop: 8 }} onClick={handleSkip}>
+          跳過這堂
         </button>
       </div>
 

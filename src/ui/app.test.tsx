@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { App } from '../App'
 import { AppDataProvider } from './store'
 import * as db from '../store/db'
+import { DAYS } from '../program/days'
+import { advanceCursor, nextDay } from '../engine/sequence'
+import { DEFAULT_STATE } from '../store/types'
 
 /**
  * 端對端煙霧測試：真的把 App 掛起來、開始一堂訓練、記一組、完成，
@@ -15,7 +18,26 @@ import * as db from '../store/db'
 
 vi.mock('virtual:pwa-register', () => ({ registerSW: () => () => {} }))
 
-afterEach(cleanup)
+// jsdom 沒有實作 window.confirm，不 stub 的話它回傳 undefined，
+// 所有要確認的動作都會安靜地不執行。
+beforeEach(() => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+})
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
+
+/** 目前課表停在哪一堂、跳過之後會變成哪一堂。 */
+async function cycleState() {
+  const state = (await db.loadState()) ?? DEFAULT_STATE
+  return {
+    current: DAYS[nextDay(state.mode, state.cursor)],
+    afterSkip: DAYS[nextDay(state.mode, advanceCursor(state.mode, state.cursor))],
+    cursor: state.cursor,
+  }
+}
 
 function renderApp() {
   return render(
@@ -75,16 +97,10 @@ describe('App 主流程', () => {
     await waitForReady()
 
     // 上一個測試留下的紀錄還在同一個 fake IndexedDB 裡，
-    // 把課表轉回推日 A。
-    //
-    // 每一圈都要等首頁的「開始今天訓練」回來才算存好：按下「結束訓練」之後
-    // 那個按鈕就換成確認畫面了，拿它當結束訊號會搶在寫入完成之前。
+    // 用「跳過這堂」把課表轉回推日 A。
     for (const expected of ['拉日 A', '腿部日', '上肢 B']) {
       await waitFor(() => expect(screen.getByText(expected)).toBeTruthy())
-      fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
-      fireEvent.click(await screen.findByRole('button', { name: '結束訓練' }))
-      fireEvent.click(screen.getByRole('button', { name: '儲存並完成' }))
-      await screen.findByRole('button', { name: '開始今天訓練' })
+      fireEvent.click(screen.getByRole('button', { name: '跳過這堂' }))
     }
 
     await waitFor(() => expect(screen.getByText('推日 A')).toBeTruthy())
@@ -102,6 +118,83 @@ describe('App 主流程', () => {
     fireEvent.click(within(backoff).getByRole('button', { expanded: false }))
     // 降重工作組要跟著主力重組換算出 90–93%。
     expect(within(backoff).getByText(/約 65–67.5 kg/)).toBeTruthy()
+  })
+})
+
+describe('跳過這堂', () => {
+  // 前面的測試可能留下沒完成的訓練，會讓首頁變成「繼續這次訓練」。
+  beforeEach(async () => {
+    await db.clearDraft()
+  })
+
+  it('直接移到下一堂，不留紀錄', async () => {
+    const { current, afterSkip } = await cycleState()
+    const sessionsBefore = (await db.loadSessions()).length
+
+    renderApp()
+    await waitForReady()
+    expect(screen.getByText(current.name)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '跳過這堂' }))
+
+    await waitFor(() => expect(screen.getByText(afterSkip.name)).toBeTruthy())
+    expect((await db.loadSessions()).length).toBe(sessionsBefore)
+  })
+
+  it('確認視窗按取消就什麼都不做', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { current, cursor } = await cycleState()
+
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: '跳過這堂' }))
+
+    expect(screen.getByText(current.name)).toBeTruthy()
+    expect((await db.loadState())?.cursor).toBe(cursor)
+  })
+
+  // 訓練中 tabbar 是收起來的，所以中途回不了首頁。會同時看到「繼續這次訓練」
+  // 和「跳過這堂」的情況只有一種：開始之後把 App 關掉再打開。
+  it('關掉 App 再打開時跳過，會一起清掉沒完成的訓練', async () => {
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
+    await screen.findByRole('button', { name: /結束/ })
+    await waitFor(async () => expect(await db.loadDraft()).toBeTruthy())
+
+    cleanup()
+    renderApp()
+    await waitForReady()
+    expect(screen.getByRole('button', { name: '繼續這次訓練' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '跳過這堂' }))
+
+    await waitFor(async () => expect((await db.loadDraft()) ?? null).toBeNull())
+    expect(await screen.findByRole('button', { name: '開始今天訓練' })).toBeTruthy()
+  })
+})
+
+describe('一組都沒記就結束', () => {
+  beforeEach(async () => {
+    await db.clearDraft()
+  })
+
+  it('不留紀錄，課表也不往前走', async () => {
+    const { current, cursor } = await cycleState()
+    const sessionsBefore = (await db.loadSessions()).length
+
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: '開始今天訓練' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: '結束（這次沒有紀錄）' }))
+    fireEvent.click(await screen.findByRole('button', { name: '結束，不留紀錄' }))
+
+    await screen.findByRole('button', { name: '開始今天訓練' })
+    expect((await db.loadSessions()).length).toBe(sessionsBefore)
+    expect((await db.loadState())?.cursor).toBe(cursor)
+    expect(screen.getByText(current.name)).toBeTruthy()
+    expect((await db.loadDraft()) ?? null).toBeNull()
   })
 })
 

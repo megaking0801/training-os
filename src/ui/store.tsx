@@ -39,7 +39,10 @@ export interface AppData {
   setMode: (mode: WeekMode) => Promise<void>
   startSession: (dayId?: DayId) => Promise<void>
   updateEntry: (entry: SessionEntry) => Promise<void>
+  /** 一組都沒記時不會留下紀錄，課表也不往前走。 */
   finishSession: (options: { condition?: Condition; note?: string }) => Promise<void>
+  /** 這堂不做了，課表直接移到下一堂。不留紀錄。 */
+  skipDay: () => Promise<void>
   discardDraft: () => Promise<void>
   recordBodyWeight: (date: string, weight: number) => Promise<void>
   removeBodyWeight: (date: string) => Promise<void>
@@ -144,6 +147,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const finishSession = useCallback(
     async ({ condition, note }: { condition?: Condition; note?: string }) => {
       if (!draft) return
+
+      // 一組都沒記的動作不留空殼，否則歷史與訓練量都會被灌水。
+      const entries = draft.entries.filter((e) => e.sets.length > 0)
+
+      // 整堂一組都沒記，就當這次沒練成：不留紀錄，課表也不往前走，
+      // 下次打開還是同一堂。想直接不做這堂請用首頁的「跳過這堂」。
+      if (entries.length === 0) {
+        await db.clearDraft()
+        setDraft(null)
+        return
+      }
+
       const completedAt = Date.now()
       const session: Session = {
         id: draft.id,
@@ -153,8 +168,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         startedAt: draft.startedAt,
         completedAt,
         durationSec: Math.round((completedAt - draft.startedAt) / 1000),
-        // 一組都沒記的動作不留空殼，否則歷史與訓練量都會被灌水。
-        entries: draft.entries.filter((e) => e.sets.length > 0),
+        entries,
         ...(condition ? { condition } : {}),
         ...(note ? { note } : {}),
       }
@@ -168,6 +182,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
     [draft, state],
   )
+
+  /**
+   * 這堂不做了，直接跳到下一堂。
+   *
+   * 已經開始但還沒完成的訓練會一起丟掉，否則 cursor 會指到下一堂、
+   * draft 卻還停在被跳過的那堂，兩邊對不上。
+   */
+  const skipDay = useCallback(async () => {
+    if (draft) {
+      await db.clearDraft()
+      setDraft(null)
+    }
+    const nextState: AppState = { ...state, cursor: advanceCursor(state.mode, state.cursor) }
+    await db.saveState(nextState)
+    setState(nextState)
+  }, [draft, state])
 
   const discardDraft = useCallback(async () => {
     await db.clearDraft()
@@ -219,6 +249,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       startSession,
       updateEntry,
       finishSession,
+      skipDay,
       discardDraft,
       recordBodyWeight,
       removeBodyWeight,
@@ -238,6 +269,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       startSession,
       updateEntry,
       finishSession,
+      skipDay,
       discardDraft,
       recordBodyWeight,
       removeBodyWeight,
