@@ -1,0 +1,163 @@
+import { useRef, useState } from 'react'
+import { EXERCISES } from '../program/exercises'
+import { DEFAULT_INCREMENT, EQUIPMENT_LABEL } from '../program/types'
+import { formatWeight } from '../engine/units'
+import { formatShortDate } from '../engine/dates'
+import { backupFileName } from '../store/backup'
+import { useAppData } from './store'
+
+type Status = { kind: 'ok' | 'error'; text: string } | null
+
+export function SettingsScreen() {
+  const {
+    state,
+    bodyWeight,
+    sessions,
+    persisted,
+    setIncrement,
+    exportJson,
+    importJson,
+    removeBodyWeight,
+  } = useAppData()
+  const [status, setStatus] = useState<Status>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  function handleExport() {
+    const json = exportJson()
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = backupFileName()
+    link.click()
+    // 立刻 revoke 會讓 iOS 來不及開檔，延後一點再收。
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    setStatus({ kind: 'ok', text: '已產生備份檔。' })
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(exportJson())
+      setStatus({ kind: 'ok', text: '備份 JSON 已複製到剪貼簿。' })
+    } catch {
+      setStatus({ kind: 'error', text: '複製失敗，請改用「下載備份檔」。' })
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    if (!window.confirm('匯入會覆蓋目前手機上的所有資料。確定嗎？')) return
+    try {
+      await importJson(await file.text())
+      setStatus({ kind: 'ok', text: '匯入完成。' })
+    } catch (error) {
+      setStatus({ kind: 'error', text: error instanceof Error ? error.message : '匯入失敗。' })
+    } finally {
+      if (fileInput.current) fileInput.current.value = ''
+    }
+  }
+
+  return (
+    <>
+      <div className="section-title">資料備份</div>
+      <div className="card">
+        <div className="small muted" style={{ marginBottom: 12 }}>
+          資料只存在這支手機上。目前有 {sessions.length} 筆訓練紀錄、{bodyWeight.length} 筆體重。
+          換手機或清掉 Safari 資料之前一定要先匯出。
+        </div>
+        <button className="btn" onClick={handleExport}>
+          下載備份檔
+        </button>
+        <button className="btn" style={{ marginTop: 8 }} onClick={handleCopy}>
+          複製備份 JSON
+        </button>
+        <button
+          className="btn"
+          style={{ marginTop: 8 }}
+          onClick={() => fileInput.current?.click()}
+        >
+          匯入備份檔
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) void handleImportFile(file)
+          }}
+        />
+        {status && (
+          <div
+            className={`banner ${status.kind === 'ok' ? 'banner--info' : 'banner--danger'} small`}
+            style={{ marginTop: 12, marginBottom: 0 }}
+          >
+            {status.text}
+          </div>
+        )}
+        <div className="small muted" style={{ marginTop: 12 }}>
+          儲存空間保護：{persisted ? '已開啟' : '未開啟（把網站加入主畫面比較容易拿到）'}
+        </div>
+      </div>
+
+      <div className="section-title">加重級距</div>
+      <div className="card">
+        <div className="small muted" style={{ marginBottom: 12 }}>
+          「建議加重」會加這個數字。預設依器材類型，去健身房實際量過之後可以改。
+        </div>
+        {Object.values(EXERCISES).map((exercise) => {
+          const fallback = DEFAULT_INCREMENT[exercise.equipment]
+          const override = state.incrementOverrides[exercise.id]
+          return (
+            <div className="row row--between" key={exercise.id} style={{ padding: '8px 0' }}>
+              <div className="grow">
+                <div>{exercise.name}</div>
+                <div className="small muted">
+                  {EQUIPMENT_LABEL[exercise.equipment]}．預設 {formatWeight(fallback)} kg
+                </div>
+              </div>
+              <input
+                type="number"
+                inputMode="decimal"
+                step={0.5}
+                min={0}
+                aria-label={`${exercise.name} 加重級距`}
+                placeholder={String(fallback)}
+                value={override ?? ''}
+                onChange={(e) =>
+                  void setIncrement(exercise.id, e.target.value === '' ? null : Number(e.target.value))
+                }
+                style={{ width: 92, minHeight: 44, textAlign: 'center' }}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="section-title">體重紀錄</div>
+      <div className="card">
+        {bodyWeight.length === 0 ? (
+          <div className="empty" style={{ padding: '20px 0' }}>
+            還沒有體重紀錄。
+          </div>
+        ) : (
+          [...bodyWeight].reverse().map((record) => (
+            <div className="kv" key={record.date}>
+              <span>{formatShortDate(record.date)}</span>
+              <span className="row" style={{ gap: 12 }}>
+                <span>{formatWeight(record.weight)} kg</span>
+                <button
+                  className="muted"
+                  aria-label={`刪除 ${record.date} 的體重`}
+                  onClick={() => void removeBodyWeight(record.date)}
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  )
+}
