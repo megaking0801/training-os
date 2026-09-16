@@ -15,6 +15,8 @@ const BASE = process.argv[2] ?? 'http://localhost:4173/training-os/'
 const OUT = process.env.SHOT_DIR ?? join(process.cwd(), 'screenshots')
 
 const CHROME_CANDIDATES = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
