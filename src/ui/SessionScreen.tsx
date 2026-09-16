@@ -167,6 +167,7 @@ export function SessionScreen({ onDone }: { onDone: () => void }) {
             suggestion={suggestions[slot.trackId] ?? { action: 'start', message: '' }}
             lastEntry={lastByTrack[slot.trackId]}
             entry={entry}
+            emptyBarKg={state.emptyBarKg}
             cautious={fatigue.level === 'caution'}
             active={slot.trackId === activeTrackId}
             onChange={(next) => void updateEntry(next)}

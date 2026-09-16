@@ -14,6 +14,11 @@ type Status = { kind: 'ok' | 'error'; text: string } | null
  */
 const GLOSSARY: { term: string; meaning: string }[] = [
   {
+    term: '掛片式機器怎麼記重量',
+    meaning:
+      '只記你自己掛上去的片重，機器本身的重量不用算。機器上只標格數或只標磅也一樣，就記你看到的數字。這個 App 比的是你上次跟這次，不是絕對重量，所以只要每次記法一致，加重建議就是準的；週訓練量算的是組數，跟你填幾公斤無關。唯一會失真的是進度頁的推估單次最大重量 —— 那個數字不是你真正的 1RM，只能看趨勢往上還是往下。另外記得回「加重級距」把這個動作改成你實際能加的最小一級（掛片常是一對 1.25 或 2.5 kg，不是預設的 5）。',
+  },
+  {
     term: '保留次數',
     meaning:
       '做完這組時，在維持正常動作的前提下，你估計自己還能再做幾下。保留 2 下就是做完第 10 下之後，感覺最多還能再擠 2 下；保留 0 就是力竭。大部分工作組的目標是保留 1–2 下，大型複合動作不需要每組做到完全力竭。這格是所有加重建議的關卡：次數到了上限、而且保留次數仍然達標，才會建議你加重量。',
@@ -58,6 +63,7 @@ export function SettingsScreen() {
     exportJson,
     importJson,
     removeBodyWeight,
+    setEmptyBarKg,
   } = useAppData()
   const [status, setStatus] = useState<Status>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -150,6 +156,28 @@ export function SettingsScreen() {
         )}
         <div className="small muted" style={{ marginTop: 12 }}>
           儲存空間保護：{persisted ? '已開啟' : '未開啟（把網站加入主畫面比較容易拿到）'}
+        </div>
+      </div>
+
+      <div className="section-title">空槓重量</div>
+      <div className="card">
+        <div className="row row--between">
+          <div className="grow">
+            <div>槓鈴的空槓幾公斤</div>
+            <div className="small muted" style={{ marginTop: 4 }}>
+              暖身第一階從這裡起跳。標準槓是 20，有些健身房的短槓或女槓是 15 或 10。
+            </div>
+          </div>
+          <input
+            type="number"
+            inputMode="decimal"
+            step={0.5}
+            min={1}
+            aria-label="空槓重量"
+            value={state.emptyBarKg}
+            onChange={(e) => void setEmptyBarKg(Number(e.target.value))}
+            style={{ width: 92, minHeight: 44, textAlign: 'center' }}
+          />
         </div>
       </div>
 

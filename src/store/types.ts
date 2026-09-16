@@ -7,10 +7,17 @@ export interface SessionEntry {
   exerciseId: string
   sets: LoggedSet[]
   /**
+   * 熱身組。
+   *
+   * 只在進行中的訓練裡有意義：熱身不算工作組，不計訓練量，也不能拿來
+   * 推「上次用多少」，所以 `toSessionEntries` 會在收工時把它剝掉。
+   * 存在 draft 裡是為了中途關掉 App 再打開時還看得到。
+   */
+  warmupSets?: LoggedSet[]
+  /**
    * 今天不做這個動作。
    *
-   * 只在進行中的訓練裡有意義：一組都沒記的動作本來就不會存進 Session，
-   * 所以這個旗標不會進到歷史紀錄裡。
+   * 只在進行中的訓練裡有意義，收工時一樣會被剝掉。
    */
   skipped?: boolean
 }
@@ -72,12 +79,15 @@ export interface AppState {
   cursor: number
   /** 使用者覆寫的加重級距，key 是 exerciseId。 */
   incrementOverrides: Record<string, number>
+  /** 槓鈴空槓幾公斤。不是每間健身房的槓都是 20。 */
+  emptyBarKg: number
 }
 
 export const DEFAULT_STATE: AppState = {
   mode: 4,
   cursor: 0,
   incrementOverrides: {},
+  emptyBarKg: 20,
 }
 
 /** JSON 備份檔的格式。Handoff §29。 */

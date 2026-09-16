@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { buildBackup, parseBackup, serializeBackup } from './backup'
-import { benchTopSetTrend, exerciseHistory, lastEntryByTrack, weeklyVolumeTrend } from './selectors'
+import {
+  benchTopSetTrend,
+  exerciseHistory,
+  lastEntryByTrack,
+  toSessionEntries,
+  weeklyVolumeTrend,
+} from './selectors'
 import { DEFAULT_STATE, type Session } from './types'
 
 function session(
@@ -91,6 +97,54 @@ describe('週訓練量', () => {
   })
 })
 
+describe('完成訓練時整理紀錄', () => {
+  /**
+   * 熱身組只在健身房當下有用，結束之後不留下來：
+   * 留著會灌水訓練量，也會讓「上次用多少」抓到暖身的輕重量。
+   */
+  it('熱身組不會進歷史紀錄', () => {
+    const entries = toSessionEntries([
+      {
+        trackId: 'machineInclinePress',
+        exerciseId: 'machineInclinePress',
+        warmupSets: [{ weight: 20, reps: 10, rir: 5 }],
+        sets: [{ weight: 40, reps: 8, rir: 2 }],
+      },
+    ])
+    expect(entries).toEqual([
+      {
+        trackId: 'machineInclinePress',
+        exerciseId: 'machineInclinePress',
+        sets: [{ weight: 40, reps: 8, rir: 2 }],
+      },
+    ])
+  })
+
+  it('只有熱身沒有正式組的動作不留空殼', () => {
+    const entries = toSessionEntries([
+      {
+        trackId: 'machineInclinePress',
+        exerciseId: 'machineInclinePress',
+        warmupSets: [{ weight: 20, reps: 10, rir: 5 }],
+        sets: [],
+      },
+    ])
+    expect(entries).toEqual([])
+  })
+
+  it('今天不做的旗標也不留下來', () => {
+    const entries = toSessionEntries([
+      {
+        trackId: 'lateralRaise',
+        exerciseId: 'lateralRaise',
+        skipped: true,
+        sets: [{ weight: 10, reps: 12, rir: 2 }],
+      },
+    ])
+    expect(entries[0]).not.toHaveProperty('skipped')
+  })
+})
+
 describe('備份', () => {
   const backup = buildBackup(DEFAULT_STATE, SESSIONS, [{ date: '2026-09-15', weight: 78.2 }])
 
@@ -111,6 +165,27 @@ describe('備份', () => {
 
   it('版本比 App 新就拒絕匯入', () => {
     expect(() => parseBackup('{"format":"training-os-backup","version":99}')).toThrow(/比這個 App 還新/)
+  })
+
+  // 空槓重量是後來才加的欄位。以前匯出的備份沒有它，匯進來不能變成 undefined。
+  it('舊備份沒有空槓重量就補預設值', () => {
+    const old = JSON.stringify({
+      format: 'training-os-backup',
+      version: 1,
+      state: { mode: 4, cursor: 0, incrementOverrides: {} },
+      sessions: [],
+    })
+    expect(parseBackup(old).state.emptyBarKg).toBe(20)
+  })
+
+  it('空槓重量會照原樣匯入', () => {
+    const file = JSON.stringify({
+      format: 'training-os-backup',
+      version: 1,
+      state: { mode: 4, cursor: 0, incrementOverrides: {}, emptyBarKg: 15 },
+      sessions: [],
+    })
+    expect(parseBackup(file).state.emptyBarKg).toBe(15)
   })
 
   it('訓練紀錄缺欄位會被擋下來', () => {

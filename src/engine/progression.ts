@@ -56,11 +56,18 @@ function rangeText(range: [number, number]): string {
   return range[0] === range[1] ? `${range[0]}` : `${range[0]}–${range[1]}`
 }
 
+/** 機器上常常看不到公斤數，掛片式連空機多重都不知道。 */
+const MACHINE_NOTE =
+  '機器上沒標公斤也沒關係，記你掛的片重或配重格數，每次記法一致就好。'
+
 function startMessage(slot: Slot): string {
   const reps = rangeText(slot.reps)
   const rir = rangeText(slot.rir)
   const perSide = slot.perSide ? '每側 ' : ''
-  return `第一次做這個動作。選一個能在 ${perSide}${reps} 下停在保留 ${rir} 下的重量。`
+  const base = `第一次做這個動作。選一個能在 ${perSide}${reps} 下停在保留 ${rir} 下的重量。`
+  const equipment = getExercise(slot.exerciseId).equipment
+  if (equipment === 'machine' || equipment === 'smith') return `${base}${MACHINE_NOTE}`
+  return base
 }
 
 /** 雙進展與自體重動作共用的加重判斷，差別只在建議文字。 */

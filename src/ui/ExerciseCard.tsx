@@ -3,7 +3,8 @@ import type { Exercise, Slot } from '../program/types'
 import type { LoggedSet, Suggestion, TrackEntry } from '../engine/types'
 import { formatWeight } from '../engine/units'
 import { formatRelativeDay } from '../engine/dates'
-import { buildWarmup } from '../engine/warmup'
+import { buildWarmup, type WarmupStep } from '../engine/warmup'
+import { incrementFor } from '../engine/progression'
 import type { SessionEntry } from '../store/types'
 
 interface Props {
@@ -16,6 +17,8 @@ interface Props {
   cautious: boolean
   /** 是不是現在該做的那個動作。只有它預設展開，其他收起來少捲一點。 */
   active: boolean
+  /** 設定頁填的空槓重量。槓鈴動作的暖身從這裡起跳。 */
+  emptyBarKg: number
   onChange: (entry: SessionEntry) => void
   /** 記完一組之後開始休息倒數。 */
   onSetLogged: (restSeconds: number) => void
@@ -34,6 +37,27 @@ const RIR_CHOICES: { value: number; label: string }[] = [
   { value: 2, label: '還能 2 下' },
   { value: 3, label: '3 下以上' },
 ]
+
+/** 會給暖身階梯的器材。啞鈴與滑輪換重量很快，不值得佔版面。 */
+const WARMUP_EQUIPMENT = new Set(['barbell', 'machine', 'smith'])
+
+/**
+ * 這個動作需不需要熱身。
+ *
+ * 降重工作組接在主力重組後面做的是同一個動作，人早就熱開了，
+ * 再給一次暖身階梯只是佔版面。
+ */
+function needsWarmup(slot: Slot, exercise: Exercise): boolean {
+  return WARMUP_EQUIPMENT.has(exercise.equipment) && slot.progression !== 'backoff'
+}
+
+/** 熱身格給兩列。再多就變成在記流水帳了。 */
+const WARMUP_ROWS = [0, 1]
+
+function describeWarmupStep(step: WarmupStep): string {
+  const weight = `${formatWeight(step.weight)} kg`
+  return `${step.isEmptyBar ? `空槓 ${weight}` : weight} × ${step.reps}`
+}
 
 function rangeText([low, high]: [number, number]): string {
   return low === high ? `${low}` : `${low}–${high}`
@@ -107,6 +131,7 @@ export function ExerciseCard({
   entry,
   cautious,
   active,
+  emptyBarKg,
   onChange,
   onSetLogged,
 }: Props) {
@@ -134,18 +159,28 @@ export function ExerciseCard({
 
   /**
    * 暖身階梯跟著「今天打算推多少」走，不是跟著建議走：
-   * 第一次做臥推時根本沒有建議重量，這時要等使用者自己填了才算得出來。
+   * 第一次做這個動作時根本沒有建議重量，這時要等使用者自己填了才算得出來。
+   *
+   * 只給需要爬重量的大動作。啞鈴與滑輪換重量很快，不值得佔版面。
    */
   const warmup = useMemo(() => {
-    if (slot.progression !== 'benchTopSet' || entry.sets.length > 0) return []
+    if (!needsWarmup(slot, exercise) || entry.sets.length > 0) return []
     const target = Number.isFinite(nextSet.weight) ? nextSet.weight : (suggestedWeight ?? 0)
-    const steps = buildWarmup(target)
-    // 只剩空槓那一階代表還不知道今天要推多少，不用顯示。
+    // 掛片式機器空機多重沒人知道，也沒有固定的「空槓」可以起跳。
+    const isPlateLoaded = exercise.equipment !== 'barbell'
+    const steps = buildWarmup(target, {
+      increment: incrementFor(slot),
+      emptyBarKg: isPlateLoaded ? null : emptyBarKg,
+    })
+    // 只剩起跳那一階代表還不知道今天要推多少，不用顯示。
     return steps.length > 1 ? steps : []
-  }, [entry.sets.length, nextSet.weight, slot.progression, suggestedWeight])
+  }, [emptyBarKg, entry.sets.length, exercise, nextSet.weight, slot, suggestedWeight])
 
   const title = slot.label ?? exercise.name
   const perSide = slot.perSide ? '每側 ' : ''
+  // 熱身格跟暖身建議給同一批動作，但記完正式組之後不收起來，
+  // 這樣中途想回頭看剛剛熱身用多少還找得到。
+  const showWarmup = needsWarmup(slot, exercise)
 
   function commitSet() {
     if (!isLoggable(nextSet)) return
@@ -160,6 +195,20 @@ export function ExerciseCard({
 
   function removeSet(index: number) {
     onChange({ ...entry, sets: entry.sets.filter((_, i) => i !== index) })
+  }
+
+  const warmupSets = entry.warmupSets ?? []
+
+  /**
+   * 熱身組只是健身房當下的筆記。存在進行中的訓練裡，中途關掉 App
+   * 再打開還看得到，收工時 `toSessionEntries` 會把它剝掉。
+   */
+  function editWarmup(index: number, patch: Partial<LoggedSet>) {
+    const next = WARMUP_ROWS.map(
+      (row) => warmupSets[row] ?? { weight: Number.NaN, reps: Number.NaN, rir: 0 },
+    )
+    next[index] = { ...next[index]!, ...patch }
+    onChange({ ...entry, warmupSets: next })
   }
 
   function setSkipped(next: boolean) {
@@ -238,13 +287,48 @@ export function ExerciseCard({
 
           {warmup.length > 0 && (
             <div className="suggestion small">
-              <div style={{ marginBottom: 4 }}>暖身（不算工作組）</div>
+              <div style={{ marginBottom: 4 }}>暖身</div>
               {warmup.map((step, i) => (
                 <div key={i} className="muted">
-                  {step.isEmptyBar ? '空槓' : `${formatWeight(step.weight)} kg`} × {step.reps}
+                  {describeWarmupStep(step)}
                 </div>
               ))}
+              <div className="muted" style={{ marginTop: 6 }}>
+                照著做就好，不用填。
+              </div>
             </div>
+          )}
+
+          {showWarmup && (
+            <>
+              <div className="setrow__labels setrow__labels--warmup" aria-hidden>
+                <span>熱身</span>
+                <span>重量 kg</span>
+                <span>{slot.perSide ? '每側次數' : '次數'}</span>
+              </div>
+              <div className="setlist">
+                {WARMUP_ROWS.map((row) => (
+                  <div className="setrow setrow--warmup" key={row}>
+                    <span className="setrow__index">W{row + 1}</span>
+                    <NumberField
+                      label={`${title} 熱身第 ${row + 1} 組重量`}
+                      value={warmupSets[row]?.weight ?? Number.NaN}
+                      step={0.5}
+                      onChange={(weight) => editWarmup(row, { weight })}
+                    />
+                    <NumberField
+                      label={`${title} 熱身第 ${row + 1} 組次數`}
+                      value={warmupSets[row]?.reps ?? Number.NaN}
+                      step={1}
+                      onChange={(reps) => editWarmup(row, { reps })}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="small muted" style={{ marginTop: 6 }}>
+                熱身不算工作組，不進歷史紀錄也不算訓練量。想記再記，空著也沒關係。
+              </div>
+            </>
           )}
 
           {entry.sets.length > 0 && (

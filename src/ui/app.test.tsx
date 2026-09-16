@@ -265,6 +265,30 @@ describe('一組都沒記就結束', () => {
   })
 })
 
+describe('設定頁的空槓重量', () => {
+  // 不是每間健身房的槓都是 20 kg，暖身階梯要跟著走。
+  it('改過之後會存下來', async () => {
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: /設定/ }))
+
+    const field = await screen.findByLabelText('空槓重量')
+    fireEvent.change(field, { target: { value: '15' } })
+
+    await waitFor(async () => {
+      expect((await db.loadState())?.emptyBarKg).toBe(15)
+    })
+  })
+
+  it('有掛片式機器怎麼記的說明', async () => {
+    renderApp()
+    await waitForReady()
+    fireEvent.click(screen.getByRole('button', { name: /設定/ }))
+
+    expect(await screen.findByText(/掛片式/)).toBeTruthy()
+  })
+})
+
 describe('分頁切換', () => {
   it('四個分頁都打得開', async () => {
     renderApp()

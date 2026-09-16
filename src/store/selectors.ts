@@ -3,7 +3,7 @@ import type { TrackEntry } from '../engine/types'
 import { estimateOneRepMax } from '../engine/e1rm'
 import { weekKey } from '../engine/dates'
 import { actualVolume, type VolumeByMuscle } from '../engine/volume'
-import type { Session } from './types'
+import type { Session, SessionEntry } from './types'
 
 /**
  * 從訓練紀錄推導出畫面要的資料。
@@ -112,4 +112,16 @@ export function weeklyVolumeTrend(sessions: Session[]): WeekVolumePoint[] {
 /** 已完成訓練的日期，新的在前面。給「本週 x/y」用。 */
 export function sessionDateKeys(sessions: Session[]): string[] {
   return sessions.map((s) => s.date)
+}
+
+/**
+ * 把進行中的訓練整理成可以存進歷史的樣子。
+ *
+ * 熱身組與「今天不做」只在健身房當下有用：留著會灌水訓練量，
+ * 也會讓「上次用多少」抓到暖身的輕重量。
+ */
+export function toSessionEntries(entries: SessionEntry[]): SessionEntry[] {
+  return entries
+    .filter((e) => e.sets.length > 0)
+    .map(({ warmupSets: _warmupSets, skipped: _skipped, ...keep }) => keep)
 }

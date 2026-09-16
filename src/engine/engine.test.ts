@@ -219,6 +219,60 @@ describe('臥推暖身（Handoff §18）', () => {
       expect(steps[i]!.weight).toBeLessThan(100)
     }
   })
+
+  it('空槓重量可以改成自己健身房的槓', () => {
+    const steps = buildWarmup(72.5, { emptyBarKg: 15 })
+    expect(steps[0]!.weight).toBe(15)
+    expect(steps[0]!.isEmptyBar).toBe(true)
+  })
+})
+
+describe('第一次做某個動作的提示', () => {
+  /**
+   * 機器上常常只標格數或只標磅，掛片式更是連空機多重都不知道。
+   * 這個 App 比的是上次跟這次，所以記法一致就好 —— 要在使用者
+   * 卡住的當下講，不是藏在設定頁。
+   */
+  it('機械動作會提醒記法一致就好', () => {
+    const s = suggest({ slot: slotOf('machineInclinePress') })
+    expect(s.action).toBe('start')
+    expect(s.message).toContain('記法一致')
+  })
+
+  it('史密斯機也算機器', () => {
+    const s = suggest({ slot: slotOf('hipThrust') })
+    expect(s.message).toContain('記法一致')
+  })
+
+  it('自由重量不囉唆這件事', () => {
+    const s = suggest({ slot: slotOf('inclineDbPress') })
+    expect(s.message).not.toContain('記法一致')
+  })
+})
+
+describe('掛片式機器的暖身', () => {
+  /**
+   * 掛片式機器空機多重沒人知道，而且空機通常太輕，
+   * 所以不給「空機」那一階，直接從掛一半的片開始。
+   */
+  it('沒有空機那一階', () => {
+    const steps = buildWarmup(60, { emptyBarKg: null })
+    expect(steps.some((s) => s.isEmptyBar)).toBe(false)
+    expect(steps.map((s) => [s.weight, s.reps])).toEqual([
+      [30, 5],
+      [42.5, 3],
+      [50, 1],
+    ])
+  })
+
+  it('目標很輕時，階梯從最輕的一級片重起跳', () => {
+    const steps = buildWarmup(5, { emptyBarKg: null, increment: 2.5 })
+    expect(steps.map((s) => s.weight)).toEqual([2.5])
+  })
+
+  it('還沒填今天要推多少就不給階梯', () => {
+    expect(buildWarmup(0, { emptyBarKg: null })).toEqual([])
+  })
 })
 
 describe('推估單次最大重量', () => {

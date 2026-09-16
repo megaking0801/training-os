@@ -13,6 +13,7 @@ import { advanceCursor, nextDay } from '../engine/sequence'
 import { toDateKey } from '../engine/dates'
 import * as db from '../store/db'
 import { buildBackup, parseBackup, serializeBackup } from '../store/backup'
+import { toSessionEntries } from '../store/selectors'
 import {
   DEFAULT_STATE,
   type AppState,
@@ -47,6 +48,7 @@ export interface AppData {
   recordBodyWeight: (date: string, weight: number) => Promise<void>
   removeBodyWeight: (date: string) => Promise<void>
   setIncrement: (exerciseId: string, increment: number | null) => Promise<void>
+  setEmptyBarKg: (weight: number) => Promise<void>
   exportJson: () => string
   importJson: (text: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
@@ -108,6 +110,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     [persistState, state],
   )
 
+  const setEmptyBarKg = useCallback(
+    async (weight: number) => {
+      if (!(weight > 0)) return
+      await persistState({ ...state, emptyBarKg: weight })
+    },
+    [persistState, state],
+  )
+
   const startSession = useCallback(
     async (dayId?: DayId) => {
       const target = dayId ?? nextDay(state.mode, state.cursor)
@@ -148,8 +158,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     async ({ condition, note }: { condition?: Condition; note?: string }) => {
       if (!draft) return
 
-      // 一組都沒記的動作不留空殼，否則歷史與訓練量都會被灌水。
-      const entries = draft.entries.filter((e) => e.sets.length > 0)
+      // 一組都沒記的動作不留空殼，熱身組也不進歷史，否則訓練量會被灌水。
+      const entries = toSessionEntries(draft.entries)
 
       // 整堂一組都沒記，就當這次沒練成：不留紀錄，課表也不往前走，
       // 下次打開還是同一堂。想直接不做這堂請用首頁的「跳過這堂」。
@@ -254,6 +264,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       recordBodyWeight,
       removeBodyWeight,
       setIncrement,
+      setEmptyBarKg,
       exportJson,
       importJson,
       deleteSession,
@@ -274,6 +285,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       recordBodyWeight,
       removeBodyWeight,
       setIncrement,
+      setEmptyBarKg,
       exportJson,
       importJson,
       deleteSession,

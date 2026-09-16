@@ -115,6 +115,11 @@ export function parseBackup(text: string): BackupFile {
     incrementOverrides: Object.fromEntries(
       Object.entries(overrides).filter(([, v]) => typeof v === 'number' && v > 0),
     ),
+    // 這個欄位是後來才加的，舊備份沒有。
+    emptyBarKg:
+      typeof rawState.emptyBarKg === 'number' && rawState.emptyBarKg > 0
+        ? rawState.emptyBarKg
+        : DEFAULT_STATE.emptyBarKg,
   }
 
   const sessions = Array.isArray(r.sessions) ? r.sessions.map(parseSession) : fail('缺少訓練紀錄')

@@ -451,6 +451,16 @@ textarea:focus {
   grid-template-columns: 26px 1fr 1fr;
 }
 
+/* 熱身列只有重量與次數，沒有保留次數，也不能刪 —— 它不進歷史紀錄。 */
+.setrow--warmup,
+.setrow__labels--warmup {
+  grid-template-columns: 26px 1fr 1fr;
+}
+
+.setrow--warmup .setrow__field input {
+  color: var(--muted);
+}
+
 .nextset {
   margin-top: 12px;
   padding-top: 12px;
